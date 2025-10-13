@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
           ],
           max_history: 32,
           greeting_message:
-            "Hello! I'm your AI coding assistant. Ask me to create any HTML, CSS, or JavaScript code, and I'll generate it for you in real-time!",
+            "Hello! I'm your Agora AI coding assistant. Ask me to create any web base application, and I'll do it for you in real-time!",
           failure_message:
             "I'm having trouble processing that. Could you please try again?",
           params: {
