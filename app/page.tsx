@@ -368,19 +368,19 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         <header className="mb-6">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <img
                 src="https://convoai.world/ConvoAI-World-logo-horizontal.png"
                 alt="ConvoAI"
-                className="h-6 sm:h-7"
+                className="h-5 sm:h-6 md:h-7"
               />
               <span className="text-gray-400 text-xs sm:text-sm">by</span>
               <svg
                 viewBox="0 0 399.34668 137.06667"
-                className="h-3 sm:h-3.5 text-gray-400 transition-all duration-300 hover:scale-105 hover:brightness-110 hover:text-[#34b7ee] translate-y-0.5"
+                className="h-2.5 sm:h-3 md:h-3.5 text-gray-400 transition-all duration-300 hover:scale-105 hover:brightness-110 hover:text-[#34b7ee] translate-y-0.5"
                 role="img"
                 aria-label="Agora"
                 xmlns="http://www.w3.org/2000/svg"
@@ -419,7 +419,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
               <div className="text-left sm:text-right">
-                <h1 className="text-xl sm:text-2xl font-bold">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold">
                   🎯 AI Coding Assistant
                 </h1>
                 <p className="text-slate-400 text-xs sm:text-sm">
@@ -429,7 +429,7 @@ export default function Home() {
               {!isConnected ? (
                 <button
                   onClick={handleConnect}
-                  className="px-5 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition whitespace-nowrap text-sm sm:text-base text-black hover:brightness-110"
+                  className="px-4 sm:px-5 md:px-6 py-2 sm:py-3 rounded-lg font-semibold transition whitespace-nowrap text-sm sm:text-base text-black hover:brightness-110 w-full sm:w-auto"
                   style={{
                     backgroundImage:
                       "linear-gradient(270deg, #00c2ff, #a0faff 33%, #fcf9f8 66%, #c46ffb)",
@@ -438,10 +438,10 @@ export default function Home() {
                   Start Session
                 </button>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                   <button
                     onClick={handleToggleMute}
-                    className={`relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 hover:scale-105 ${
+                    className={`relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-all duration-200 hover:scale-105 ${
                       isMuted
                         ? "bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50"
                         : "bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50"
@@ -449,21 +449,21 @@ export default function Home() {
                     title={isMuted ? "Unmute microphone" : "Mute microphone"}
                   >
                     {isMuted ? (
-                      <MicOff className="w-6 h-6 text-red-400" />
+                      <MicOff className="w-5 h-5 sm:w-6 sm:h-6 text-red-400" />
                     ) : (
-                      <Mic className="w-6 h-6 text-green-400" />
+                      <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-green-400" />
                     )}
                     {!isMuted && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse"></div>
                     )}
                   </button>
 
                   <button
                     onClick={handleDisconnect}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-red-500/20 border border-slate-600 hover:border-red-500/50 rounded-full transition-all duration-200 hover:scale-105 text-sm font-medium"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-slate-700/50 hover:bg-red-500/20 border border-slate-600 hover:border-red-500/50 rounded-full transition-all duration-200 hover:scale-105 text-xs sm:text-sm font-medium"
                     title="End session"
                   >
-                    <LogOut className="w-4 h-4 text-slate-300" />
+                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
                     <span className="text-slate-300">End</span>
                   </button>
                 </div>
@@ -478,17 +478,19 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
           {/* Code View Panel - Larger */}
-          <div className="lg:col-span-4 bg-slate-800/50 backdrop-blur rounded-lg p-6 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-slate-200">
+          <div className="lg:col-span-4 bg-slate-800/50 backdrop-blur rounded-lg p-4 sm:p-6 shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-200">
                 {showSourceCode ? "Source Code" : "Preview"}
               </h2>
-              <div className="flex gap-3 items-center">
+              <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
                 {codeBlocks.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-300">Version:</label>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+                    <label className="text-xs sm:text-sm text-slate-300">
+                      Version:
+                    </label>
                     <select
                       value={codeBlocks.findIndex(
                         (b) => b.html === currentCode
@@ -499,7 +501,7 @@ export default function Home() {
                           setCurrentCode(codeBlocks[idx].html);
                         }
                       }}
-                      className="bg-slate-700 text-white px-3 py-1 rounded text-sm border border-slate-600 focus:outline-none focus:border-purple-500"
+                      className="bg-slate-700 text-white px-2 sm:px-3 py-1 rounded text-xs sm:text-sm border border-slate-600 focus:outline-none focus:border-purple-500"
                     >
                       {codeBlocks.map((block, idx) => (
                         <option key={block.id} value={idx}>
@@ -514,11 +516,12 @@ export default function Home() {
                   <>
                     <button
                       onClick={() => setShowSourceCode(!showSourceCode)}
-                      className="bg-blue-600 hover:bg-blue-700 px-4 py-1 rounded text-sm font-semibold transition flex items-center gap-2"
+                      className="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-1 rounded text-xs sm:text-sm font-semibold transition flex items-center gap-1 sm:gap-2"
                     >
                       {showSourceCode ? (
                         <>
-                          <span>👁️</span> Preview
+                          <span>👁️</span>{" "}
+                          <span className="hidden sm:inline">Preview</span>
                         </>
                       ) : (
                         <>
@@ -546,7 +549,7 @@ export default function Home() {
                         a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="bg-green-600 hover:bg-green-700 px-4 py-1 rounded text-sm font-semibold transition flex items-center gap-2"
+                      className="bg-green-600 hover:bg-green-700 px-3 sm:px-4 py-1 rounded text-xs sm:text-sm font-semibold transition flex items-center gap-1 sm:gap-2"
                     >
                       <span>⬇</span>
                     </button>
@@ -555,7 +558,7 @@ export default function Home() {
               </div>
             </div>
             <div
-              className="h-[600px] rounded-lg shadow-inner relative"
+              className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-lg shadow-inner relative"
               style={{ overflow: "hidden", isolation: "isolate" }}
             >
               {currentCode ? (
@@ -600,13 +603,13 @@ export default function Home() {
           </div>
 
           {/* Transcript Panel - Minimal */}
-          <div className="lg:col-span-1 bg-slate-800/30 backdrop-blur rounded-lg p-4 shadow-lg">
-            <h2 className="text-lg font-semibold mb-3 text-slate-300">
+          <div className="lg:col-span-1 bg-slate-800/30 backdrop-blur rounded-lg p-3 sm:p-4 shadow-lg">
+            <h2 className="text-base sm:text-lg font-semibold mb-3 text-slate-300">
               Transcript
             </h2>
             <div
               ref={transcriptContainerRef}
-              className="space-y-2 h-[600px] overflow-y-auto text-sm"
+              className="space-y-2 h-[300px] sm:h-[400px] lg:h-[600px] overflow-y-auto text-sm"
             >
               {transcript.length === 0 ? (
                 <p className="text-slate-500 text-center py-4 text-xs">
@@ -641,25 +644,24 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-8 bg-slate-800/50 backdrop-blur rounded-lg p-6">
-          <h3 className="text-xl font-bold mb-3">How it works</h3>
-          <ul className="space-y-2 text-slate-300">
+        <div className="mt-6 sm:mt-8 bg-slate-800/50 backdrop-blur rounded-lg p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-bold mb-3">How it works</h3>
+          <ul className="space-y-2 text-slate-300 text-sm sm:text-base">
             <li>
               • Click "Start Session" to establish a connection with the
               conversational AI
             </li>
             <li>• Your microphone will activate automatically</li>
             <li>
-              • The code appears in the preview pane on the right in a sandboxed
-              iframe
+              • The code appears in the preview pane in a sandboxed iframe
             </li>
             <li>• Ask the AI to create any web base application.</li>
           </ul>
         </div>
 
         {/* Footer */}
-        <footer className="mt-12 border-t border-slate-700 pt-6">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-slate-400 text-sm">
+        <footer className="mt-8 sm:mt-12 border-t border-slate-700 pt-4 sm:pt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-slate-400 text-xs sm:text-sm">
             <span>Powered by</span>
             <a
               href="https://www.agora.io"
@@ -669,7 +671,7 @@ export default function Home() {
             >
               <svg
                 viewBox="0 0 399.34668 137.06667"
-                className="h-4 transition-all duration-300 hover:scale-105"
+                className="h-3 sm:h-4 transition-all duration-300 hover:scale-105"
                 role="img"
                 aria-label="Agora"
                 xmlns="http://www.w3.org/2000/svg"
