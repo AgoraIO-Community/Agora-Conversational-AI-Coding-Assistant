@@ -29,6 +29,7 @@ export default function Home() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [showSourceCode, setShowSourceCode] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const agoraClientRef = useRef<AgoraClientType | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -42,6 +43,54 @@ export default function Home() {
         transcriptContainerRef.current.scrollHeight;
     }
   }, [transcript]);
+
+  useEffect(() => {
+    // Track if iframe is focused
+    let iframeFocused = false;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        const target = e.target as HTMLElement;
+
+        // Allow arrow keys in form elements
+        const isInputElement =
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.contentEditable === "true";
+
+        // Only prevent scrolling when iframe is focused (for games) or not in form elements
+        if (!isInputElement && (iframeFocused || target.closest("iframe"))) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }
+    };
+
+    // Listen for iframe focus events
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target && (e.target as HTMLElement).tagName === "IFRAME") {
+        iframeFocused = true;
+      }
+    };
+
+    const handleBlur = (e: FocusEvent) => {
+      if (e.target && (e.target as HTMLElement).tagName === "IFRAME") {
+        iframeFocused = false;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("focus", handleFocus, true);
+    document.addEventListener("blur", handleBlur, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("focus", handleFocus, true);
+      document.removeEventListener("blur", handleBlur, true);
+    };
+  }, []);
 
   const parseAgentResponse = (text: string) => {
     // Match HTML/CSS/JS code blocks wrapped in Chinese square brackets 【】
@@ -74,6 +123,9 @@ export default function Home() {
   };
 
   const handleConnect = async () => {
+    setIsConnecting(true);
+    setError("");
+
     try {
       const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
       const staticToken = process.env.NEXT_PUBLIC_AGORA_TOKEN;
@@ -271,6 +323,8 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
       console.error("Connection error:", err);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -429,13 +483,21 @@ export default function Home() {
               {!isConnected ? (
                 <button
                   onClick={handleConnect}
-                  className="px-4 sm:px-5 md:px-6 py-2 sm:py-3 rounded-lg font-semibold transition whitespace-nowrap text-sm sm:text-base text-black hover:brightness-110 w-full sm:w-auto"
+                  disabled={isConnecting}
+                  className="px-4 sm:px-5 md:px-6 py-2 sm:py-3 rounded-lg font-semibold transition whitespace-nowrap text-sm sm:text-base text-black hover:brightness-110 w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   style={{
                     backgroundImage:
                       "linear-gradient(270deg, #00c2ff, #a0faff 33%, #fcf9f8 66%, #c46ffb)",
                   }}
                 >
-                  Start Session
+                  {isConnecting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent"></div>
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    "Start Session"
+                  )}
                 </button>
               ) : (
                 <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
@@ -487,7 +549,7 @@ export default function Home() {
               </h2>
               <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
                 {codeBlocks.length > 1 && (
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <label className="text-xs sm:text-sm text-slate-300">
                       Version:
                     </label>
@@ -574,6 +636,13 @@ export default function Home() {
                       className="w-full h-full border-0 bg-white"
                       sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
                       style={{ display: "block", overflow: "auto" }}
+                      onLoad={() => {
+                        // Add focus to iframe when it loads so arrow keys work inside it
+                        const iframe = document.querySelector("iframe");
+                        if (iframe) {
+                          iframe.focus();
+                        }
+                      }}
                     />
                   )}
                   {isGeneratingCode && (
