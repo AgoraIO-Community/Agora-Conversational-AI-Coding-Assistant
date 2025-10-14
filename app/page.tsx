@@ -18,6 +18,46 @@ interface CodeBlock {
   timestamp: Date;
 }
 
+// Helper function to format HTML code for better readability
+function formatHTML(html: string): string {
+  let formatted = "";
+  let indent = 0;
+  const tab = "  "; // 2 spaces
+
+  // Simple HTML formatter
+  html.split(/(<[^>]+>)/g).forEach((token) => {
+    if (!token.trim()) return;
+
+    if (token.startsWith("</")) {
+      // Closing tag - decrease indent before adding
+      indent = Math.max(0, indent - 1);
+      formatted += "\n" + tab.repeat(indent) + token;
+    } else if (
+      token.startsWith("<") &&
+      !token.endsWith("/>") &&
+      !token.startsWith("<!")
+    ) {
+      // Opening tag - add then increase indent
+      formatted += "\n" + tab.repeat(indent) + token;
+      // Don't increase indent for self-closing-like tags or inline tags
+      if (!token.match(/<(br|hr|img|input|meta|link)/i)) {
+        indent++;
+      }
+    } else if (token.startsWith("<")) {
+      // Self-closing or doctype
+      formatted += "\n" + tab.repeat(indent) + token;
+    } else {
+      // Text content
+      const trimmed = token.trim();
+      if (trimmed) {
+        formatted += "\n" + tab.repeat(indent) + trimmed;
+      }
+    }
+  });
+
+  return formatted.trim();
+}
+
 export default function Home() {
   const [isConnected, setIsConnected] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
@@ -30,11 +70,11 @@ export default function Home() {
   const [showSourceCode, setShowSourceCode] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const agoraClientRef = useRef<AgoraClientType | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
-  const generatingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Scroll the transcript container to bottom, not the whole page
@@ -203,60 +243,38 @@ export default function Home() {
 
         console.log("  - Spoken text:", spokenText);
         console.log("  - Code blocks found:", codes.length);
+        console.log("  - isFinal:", message.isFinal);
 
         // Detect if this is the greeting message
         const isGreeting =
           spokenText.toLowerCase().includes("hello") &&
           spokenText.toLowerCase().includes("coding assistant");
 
-        // Detect if the response indicates code generation
-        const codeRelatedKeywords = [
-          "here is",
-          "here's",
-          "i've created",
-          "i've made",
-          "i've built",
-          "creating",
-          "making",
-          "building",
-          "button",
-          "page",
-          "website",
-          "form",
-          "card",
-          "layout",
-          "design",
-        ];
-        const seemsLikeCodeGeneration = codeRelatedKeywords.some((keyword) =>
-          spokenText.toLowerCase().includes(keyword)
-        );
+        // Detect if the response contains Chinese opening bracket (indicates code generation)
+        // Check the original message.text since parseAgentResponse strips the brackets
+        const hasChineseOpenBracket = message.text?.includes("【");
 
-        // Show "Generating code..." only when it seems like code is being generated
-        if (message.type === "agent" && !isGreeting) {
-          if (codes.length === 0 && spokenText && seemsLikeCodeGeneration) {
-            // Clear any existing timeout
-            if (generatingTimeoutRef.current) {
-              clearTimeout(generatingTimeoutRef.current);
-            }
-
-            // Agent is speaking about code but no code yet - likely generating
+        // Show "Generating code..." when Chinese bracket detected (even if not final yet)
+        // Once we see the bracket, keep showing spinner until message is final
+        if (message.type === "agent" && !isGreeting && hasChineseOpenBracket) {
+          if (!message.isFinal) {
+            // Agent is streaming code - show loading
             setIsGeneratingCode(true);
-
-            // Auto-hide after 5 seconds if code doesn't arrive
-            generatingTimeoutRef.current = setTimeout(() => {
-              setIsGeneratingCode(false);
-            }, 5000);
-          } else if (codes.length > 0) {
-            // Code arrived - hide loading immediately
-            if (generatingTimeoutRef.current) {
-              clearTimeout(generatingTimeoutRef.current);
-            }
+          } else if (message.isFinal) {
+            // Code generation complete - hide loading
             setIsGeneratingCode(false);
           }
+        } else if (
+          message.type === "agent" &&
+          message.isFinal &&
+          !hasChineseOpenBracket
+        ) {
+          // Non-code message finished - make sure loading is off
+          setIsGeneratingCode(false);
         }
 
-        // Only show spoken text in transcript (no code)
-        if (spokenText) {
+        // Only show FINAL spoken text in transcript (no code, no interim messages)
+        if (spokenText && message.isFinal) {
           setTranscript((prev) => [
             ...prev,
             {
@@ -268,8 +286,8 @@ export default function Home() {
           ]);
         }
 
-        // Auto-render code blocks in preview pane
-        if (codes.length > 0) {
+        // Auto-render code blocks in preview pane (only on final message)
+        if (codes.length > 0 && message.isFinal) {
           codes.forEach((code, idx) => {
             console.log(
               `  - Code block ${idx + 1}:`,
@@ -352,11 +370,8 @@ export default function Home() {
       agoraClientRef.current = null;
     }
 
-    // Clear any pending timeout
-    if (generatingTimeoutRef.current) {
-      clearTimeout(generatingTimeoutRef.current);
-      generatingTimeoutRef.current = null;
-    }
+    // Clear generating code state
+    setIsGeneratingCode(false);
 
     // Reset all state
     setIsConnected(false);
@@ -380,6 +395,16 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to toggle mute");
       console.error("Toggle mute error:", err);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(currentCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy code:", err);
     }
   };
 
@@ -626,9 +651,27 @@ export default function Home() {
               {currentCode ? (
                 <>
                   {showSourceCode ? (
-                    <pre className="w-full h-full overflow-auto bg-slate-900 text-green-400 p-4 text-xs font-mono">
-                      <code>{currentCode}</code>
-                    </pre>
+                    <div className="w-full h-full relative">
+                      <button
+                        onClick={handleCopyCode}
+                        className="absolute top-2 right-2 z-10 bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs font-semibold transition flex items-center gap-1.5"
+                      >
+                        {copied ? (
+                          <>
+                            <span>✓</span>
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>📋</span>
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                      <pre className="w-full h-full overflow-auto bg-slate-900 text-green-400 p-4 text-xs font-mono">
+                        <code>{formatHTML(currentCode)}</code>
+                      </pre>
+                    </div>
                   ) : (
                     <iframe
                       srcDoc={currentCode}

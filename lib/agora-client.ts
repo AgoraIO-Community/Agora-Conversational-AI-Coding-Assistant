@@ -176,17 +176,17 @@ export class AgoraConversationalClient {
               data.final
             );
 
-            // Only pass FINAL transcriptions to UI
-            if (text && this.onTranscription && isFinal) {
-              console.log("✅ Passing to UI callback");
+            // Pass both FINAL and INTERIM transcriptions to UI (for loading states)
+            if (text && this.onTranscription) {
+              console.log(
+                `✅ Passing to UI callback [${isFinal ? "FINAL" : "INTERIM"}]`
+              );
               this.onTranscription({
                 type: isAgent ? "agent" : "user",
                 text: text,
                 isFinal: isFinal,
                 timestamp: Date.now(),
               });
-            } else if (!isFinal) {
-              console.log("⏭️ Skipping interim transcription");
             }
           }
         } catch (err) {
