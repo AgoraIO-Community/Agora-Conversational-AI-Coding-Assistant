@@ -724,7 +724,7 @@ export default function Home() {
             <li>
               • The code appears in the preview pane in a sandboxed iframe
             </li>
-            <li>• Ask the AI to create any web base application.</li>
+            <li>• Ask the AI to create any web-based application.</li>
           </ul>
         </div>
 
