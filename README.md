@@ -1,4 +1,4 @@
-# 🎯 AI Coding Assistant - Conversational AI Demo
+# 🎯 Agora Conversational AI - Coding Assistant Demo
 
 A powerful Next.js application featuring real-time voice interaction with an AI coding assistant powered by Agora Conversational AI. Talk to the AI and watch it generate HTML/CSS/JS code that renders live in your browser!
 
