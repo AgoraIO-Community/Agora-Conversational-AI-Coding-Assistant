@@ -166,6 +166,12 @@ export default function Home() {
     setIsConnecting(true);
     setError("");
 
+    // Reset all state when starting a new session
+    setTranscript([]);
+    setCodeBlocks([]);
+    setCurrentCode("");
+    setShowSourceCode(false);
+
     try {
       const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
       const staticToken = process.env.NEXT_PUBLIC_AGORA_TOKEN;
@@ -373,16 +379,14 @@ export default function Home() {
     // Clear generating code state
     setIsGeneratingCode(false);
 
-    // Reset all state
+    // Reset connection state only (keep preview and code intact)
     setIsConnected(false);
     setIsMicActive(false);
     setIsMuted(false);
     setIsGeneratingCode(false);
     setError("");
     setTranscript([]);
-    setCodeBlocks([]);
-    setCurrentCode("");
-    setShowSourceCode(false);
+    // DON'T clear codeBlocks, currentCode, or showSourceCode
   };
 
   const handleToggleMute = async () => {
