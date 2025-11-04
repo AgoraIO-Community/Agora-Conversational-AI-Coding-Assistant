@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RtcTokenBuilder, RtcRole } from "agora-token";
 
+/**
+ * API Route: Start Conversational AI Agent
+ * 
+ * This endpoint initializes an Agora Conversational AI agent that:
+ * 1. Joins the specified RTC channel
+ * 2. Listens to user's voice (ASR: Speech-to-text)
+ * 3. Processes requests through LLM (GPT-4o)
+ * 4. Responds with natural voice (TTS: Text-to-speech via Azure)
+ * 5. Sends transcriptions via RTM for the UI
+ * 
+ * The agent configuration includes:
+ * - System prompt instructing AI to wrap code in Chinese brackets 【】
+ * - TTS skip_patterns to avoid reading code aloud
+ * - Voice activity detection for natural interruptions
+ * - RTM enabled for real-time transcription streaming
+ */
 export async function POST(request: NextRequest) {
   try {
     const { channelName, uid } = await request.json();
@@ -42,21 +58,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate RTC and RTM2 token for the bot
+    // The bot needs BOTH:
+    // - RTC privileges to send audio (TTS voice output)
+    // - RTM2 privileges to send transcription messages
     const role = RtcRole.PUBLISHER;
-    const expirationTimeInSeconds = 3600;
+    const expirationTimeInSeconds = 3600; // 1 hour
 
     const botToken = RtcTokenBuilder.buildTokenWithRtm2(
       appId,
       appCertificate,
       channelName,
-      parseInt(botUid, 10), // RTC account (numeric UID)
+      parseInt(botUid, 10), // RTC account (numeric UID for audio)
       role,
       expirationTimeInSeconds, // RTC token expire
       expirationTimeInSeconds, // join channel privilege expire
       expirationTimeInSeconds, // pub audio privilege expire
       expirationTimeInSeconds, // pub video privilege expire
       expirationTimeInSeconds, // pub data stream privilege expire
-      botUid, // RTM user ID (string version of UID)
+      botUid, // RTM user ID (string version of UID for messaging)
       expirationTimeInSeconds // RTM token expire
     );
 
@@ -112,9 +131,12 @@ export async function POST(request: NextRequest) {
           params: {
             key: ttsApiKey,
             region: "westus",
-            voice_name: "en-US-AndrewMultilingualNeural",
+            voice_name: "en-US-AndrewMultilingualNeural", // Natural-sounding male voice
           },
-          skip_patterns: [2], // Skip content in Chinese square brackets 【】 - for code blocks!
+          // CRITICAL: skip_patterns: [2] tells TTS to skip Chinese square brackets 【】
+          // This prevents the AI from reading 500 lines of HTML code aloud.
+          // Pattern codes: 0=none, 1=square brackets[], 2=Chinese brackets【】, 3=angle brackets<>
+          skip_patterns: [2],
         },
         llm: {
           url: llmUrl,

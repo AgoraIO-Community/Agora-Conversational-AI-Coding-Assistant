@@ -132,6 +132,17 @@ export default function Home() {
     };
   }, []);
 
+  /**
+   * Parses AI agent responses to separate spoken text from code blocks.
+   *
+   * The AI wraps code in Chinese square brackets 【】 which:
+   * 1. Are skipped by TTS (skip_patterns: [2] in agent config)
+   * 2. Don't conflict with JSON/JavaScript syntax like [] or ()
+   * 3. Are easily parsed with regex
+   *
+   * @param text - Full AI response including spoken text and code
+   * @returns Object with spokenText (for transcript) and codes (for preview)
+   */
   const parseAgentResponse = (text: string) => {
     // Match HTML/CSS/JS code blocks wrapped in Chinese square brackets 【】
     // This handles cases where LLM might include markdown fences or extra text
@@ -145,11 +156,12 @@ export default function Home() {
     for (const match of matches) {
       let content = match[0].slice(1, -1); // Remove the 【 and 】
 
-      // Clean up markdown code fences if present
+      // Clean up markdown code fences if present (sometimes AI adds them)
       content = content.replace(/^```[\w]*\n?/g, "").replace(/```$/g, "");
       content = content.trim();
 
-      // Only add if it looks like HTML
+      // Validate it's actual HTML before adding to codes array
+      // This prevents false positives from other bracket usage
       if (content.includes("<html") || content.includes("<!DOCTYPE")) {
         codes.push(content);
         spokenText = spokenText.replace(match[0], ""); // Remove the entire 【code】 from spoken text
@@ -157,16 +169,30 @@ export default function Home() {
     }
 
     return {
-      spokenText: spokenText.trim(), // Text WITHOUT code blocks
-      codes, // Array of code blocks
+      spokenText: spokenText.trim(), // Text WITHOUT code blocks (to display in transcript)
+      codes, // Array of extracted code blocks (to render in preview)
     };
   };
 
+  /**
+   * Initializes a new conversational AI session.
+   *
+   * Flow:
+   * 1. Generate unique channel name (isolates each session)
+   * 2. Get RTC+RTM2 token from server (security: never expose App Certificate)
+   * 3. Start Agora Conversational AI agent via REST API
+   * 4. Initialize local Agora client (RTC for audio, RTM for transcripts)
+   * 5. Auto-start microphone after connection established
+   *
+   * Note: We reset all UI state here (transcript, code) for a fresh start.
+   * Previous session's code remains visible until this fires.
+   */
   const handleConnect = async () => {
     setIsConnecting(true);
     setError("");
 
     // Reset all state when starting a new session
+    // This gives users a clean slate while preserving previous session's code until now
     setTranscript([]);
     setCodeBlocks([]);
     setCurrentCode("");
@@ -181,12 +207,14 @@ export default function Home() {
         throw new Error("Missing Agora credentials in environment variables");
       }
 
-      // Generate random channel name
+      // Generate random channel name to ensure session isolation
+      // Format: "agora-ai-" + random alphanumeric string
       const channel = `agora-ai-${Math.random().toString(36).substring(2, 15)}`;
       const uid = Math.floor(Math.random() * 1000000);
       const botUidNum = parseInt(botUid, 10);
 
-      // Get or generate token (single token with both RTC and RTM privileges)
+      // Get or generate token (single token with both RTC and RTM2 privileges)
+      // Using buildTokenWithRtm2() gives us audio streaming + messaging in one token
       let token: string;
 
       if (staticToken) {
@@ -240,18 +268,30 @@ export default function Home() {
         botUidNum
       );
 
-      // Set up transcription callback before initializing
+      /**
+       * Set up transcription callback to handle incoming messages.
+       *
+       * This callback fires for BOTH interim and final messages:
+       * - Interim: Streaming updates as AI generates response (isFinal: false)
+       * - Final: Complete message ready for display (isFinal: true)
+       *
+       * We use interim messages to show loading indicators early,
+       * but only display/render on final messages.
+       */
       client.setTranscriptionCallback((message: any) => {
         console.log("🎤 Transcription callback received:", message);
 
         // Parse to separate spoken text from code blocks
+        // This splits "Here's a button 【<html>...</html>】 you can click"
+        // into spokenText: "Here's a button you can click"
+        // and codes: ["<html>...</html>"]
         const { spokenText, codes } = parseAgentResponse(message.text);
 
         console.log("  - Spoken text:", spokenText);
         console.log("  - Code blocks found:", codes.length);
         console.log("  - isFinal:", message.isFinal);
 
-        // Detect if this is the greeting message
+        // Detect if this is the greeting message (don't show loading for it)
         const isGreeting =
           spokenText.toLowerCase().includes("hello") &&
           spokenText.toLowerCase().includes("coding assistant");
@@ -260,14 +300,15 @@ export default function Home() {
         // Check the original message.text since parseAgentResponse strips the brackets
         const hasChineseOpenBracket = message.text?.includes("【");
 
-        // Show "Generating code..." when Chinese bracket detected (even if not final yet)
-        // Once we see the bracket, keep showing spinner until message is final
+        // Smart loading indicator: Show "Generating code..." when we detect code
+        // Turn on as soon as we see 【 in interim message
+        // Turn off when final message arrives
         if (message.type === "agent" && !isGreeting && hasChineseOpenBracket) {
           if (!message.isFinal) {
-            // Agent is streaming code - show loading
+            // Agent is streaming code - show loading spinner
             setIsGeneratingCode(true);
           } else if (message.isFinal) {
-            // Code generation complete - hide loading
+            // Code generation complete - hide loading spinner
             setIsGeneratingCode(false);
           }
         } else if (
@@ -280,19 +321,21 @@ export default function Home() {
         }
 
         // Only show FINAL spoken text in transcript (no code, no interim messages)
+        // This prevents the transcript from flickering with partial responses
         if (spokenText && message.isFinal) {
           setTranscript((prev) => [
             ...prev,
             {
               id: `${Date.now()}-${Math.random()}`,
               type: message.type,
-              text: spokenText, // Only the spoken part, no code
+              text: spokenText, // Only the spoken part, no code blocks
               timestamp: new Date(),
             },
           ]);
         }
 
         // Auto-render code blocks in preview pane (only on final message)
+        // Each code block becomes a versioned entry in the codeBlocks array
         if (codes.length > 0 && message.isFinal) {
           codes.forEach((code, idx) => {
             console.log(
@@ -305,7 +348,7 @@ export default function Home() {
               timestamp: new Date(),
             };
             setCodeBlocks((prev) => [...prev, newCodeBlock]);
-            setCurrentCode(code);
+            setCurrentCode(code); // Latest code becomes the active preview
           });
         }
       });
@@ -352,8 +395,23 @@ export default function Home() {
     }
   };
 
+  /**
+   * Ends the current session and cleans up resources.
+   *
+   * Important: This preserves the preview and generated code so users can
+   * examine results after ending the session. Code is only cleared when
+   * starting a NEW session (see handleConnect).
+   *
+   * Cleanup order:
+   * 1. Stop the AI agent on Agora's servers (via REST API)
+   * 2. Disconnect local RTC client (stops audio streaming)
+   * 3. Disconnect RTM client (stops transcription messages)
+   * 4. Reset UI state (connection indicators, transcript)
+   * 5. Preserve code state (preview, code blocks, source view)
+   */
   const handleDisconnect = async () => {
     // First, leave the conversational AI agent if we have an agentId
+    // This tells Agora's servers to stop the agent and release resources
     if (agentId) {
       try {
         console.log("Leaving conversational AI agent:", agentId);
@@ -366,17 +424,19 @@ export default function Home() {
       } catch (error) {
         console.error("Failed to leave agent:", error);
         // Don't block the disconnect process if leave fails
+        // Local cleanup should proceed regardless
       }
       setAgentId(null);
     }
 
-    // Then disconnect the Agora client
+    // Then disconnect the Agora client (RTC + RTM)
+    // This stops microphone, leaves channel, unsubscribes from messages
     if (agoraClientRef.current) {
       await agoraClientRef.current.disconnect();
       agoraClientRef.current = null;
     }
 
-    // Clear generating code state
+    // Clear any lingering loading states
     setIsGeneratingCode(false);
 
     // Reset connection state only (keep preview and code intact)
@@ -385,8 +445,11 @@ export default function Home() {
     setIsMuted(false);
     setIsGeneratingCode(false);
     setError("");
-    setTranscript([]);
+    setTranscript([]); // Clear conversation history
+
     // DON'T clear codeBlocks, currentCode, or showSourceCode
+    // Users should be able to view and export code after ending session
+    // These will be reset when starting a NEW session (see handleConnect)
   };
 
   const handleToggleMute = async () => {
