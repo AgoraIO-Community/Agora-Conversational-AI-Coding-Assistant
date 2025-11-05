@@ -27,7 +27,7 @@ Built for **LA Tech Week** by [ConvoAI](https://convoai.world) × [Agora](https:
 
 ### Code Format
 
-The AI wraps code in **Chinese square brackets** `【】` to separate it from spoken text:
+The AI wraps code in **black lenticular brackets** `【】` to separate it from spoken text:
 
 ```
 Here's a beautiful button 【<!DOCTYPE html><html>...</html>】 that you can interact with.
@@ -281,7 +281,7 @@ The AI will use https://picsum.photos/ for all images automatically!
 
 ### Code not rendering
 
-✅ AI must wrap code in Chinese brackets: `【<!DOCTYPE html>...】`
+✅ AI must wrap code in black lenticular brackets: `【<!DOCTYPE html>...】`
 ✅ Check browser console for parsing errors
 ✅ Verify TTS skip_patterns is set to `[2]` in start-agent route
 
@@ -300,9 +300,9 @@ The AI will use https://picsum.photos/ for all images automatically!
 
 ## 🎯 Key Features Explained
 
-### Chinese Square Brackets `【】`
+### Black Lenticular Brackets `【】`
 
-We use Chinese square brackets instead of regular parentheses/brackets because:
+We use black lenticular brackets instead of regular parentheses/brackets because:
 
 - ✅ TTS skip pattern `[2]` specifically handles these
 - ✅ Won't conflict with JavaScript array syntax `[]`
