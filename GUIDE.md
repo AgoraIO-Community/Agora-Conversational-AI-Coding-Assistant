@@ -2,7 +2,7 @@
 
 When I first saw the possibilities of voice-driven development tools, I knew we had to build something that would blow developers' minds at LA Tech Week. Not just another chatbot, but a real-time coding assistant that listens to your voice and generates working web applications instantly.
 
-This guide walks you through how we built it using Agora's Conversational AI platform. You'll learn the architecture decisions, the tricky parts we solved, and how to build your own voice-powered coding assistant.
+This guide walks you through how can we build it using Agora's Conversational AI platform. You'll learn the architecture decisions, the tricky parts we solved, and how to build your own voice-powered coding assistant.
 
 ## What We're Building
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     3600,
     3600, // RTC privileges
     String(uid), // RTM user ID (string)
-    3600 // RTM privilege
+    3600, // RTM privilege
   );
 
   return NextResponse.json({ token });
@@ -863,7 +863,7 @@ import debounce from "lodash.debounce";
 
 const debouncedSetIsGenerating = useMemo(
   () => debounce(setIsGeneratingCode, 300),
-  []
+  [],
 );
 ```
 
@@ -899,10 +899,16 @@ Now stop reading and start building. 🚀
 
 ---
 
+## Live Demo
+
+- **Live Demo**: [Check the live Demo](https://agora-conversational-ai-coding-assi.vercel.app/)
+
+---
+
 ## Resources
 
 - **GitHub Repository**: [Agora-Conversational-AI-Coding-Assistant](https://github.com/AgoraIO-Community/Agora-Conversational-AI-Coding-Assistant)
 - **Agora Documentation**: [Conversational AI Docs](https://docs.agora.io/en/conversational-ai/overview)
 - **Community Discord**: [Join the Agora Discord](https://discord.gg/uhkxjDpJsN)
 
-Built with ❤️ for LA Tech Week by the Agora team.
+Built with ❤️ by the Agora team.
