@@ -2,7 +2,7 @@
 
 When I first saw the possibilities of voice-driven development tools, I knew we had to build something that would blow developers' minds at LA Tech Week. Not just another chatbot, but a real-time coding assistant that listens to your voice and generates working web applications instantly.
 
-This guide walks you through how we built it using Agora's Conversational AI platform. You'll learn the architecture decisions, the tricky parts we solved, and how to build your own voice-powered coding assistant.
+This guide walks you through how can we build it using Agora's Conversational AI platform. You'll learn the architecture decisions, the tricky parts we solved, and how to build your own voice-powered coding assistant.
 
 ## What We're Building
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     3600,
     3600, // RTC privileges
     String(uid), // RTM user ID (string)
-    3600 // RTM privilege
+    3600, // RTM privilege
   );
 
   return NextResponse.json({ token });
@@ -168,7 +168,7 @@ const requestBody = {
 };
 ```
 
-**The skip_patterns trick**: Notice `skip_patterns: [2]`? This tells the TTS engine to skip content wrapped in Chinese square brackets `【】`. That's how we prevent the AI from reading aloud 500 lines of HTML code.
+**The skip_patterns trick**: Notice `skip_patterns: [2]`? This tells the TTS engine to skip content wrapped in black lenticular brackets `【】`. That's how we prevent the AI from reading aloud 500 lines of HTML code.
 
 ### 4. The Critical System Prompt
 
@@ -177,13 +177,13 @@ Here's the system prompt that makes the code generation work:
 ````text
 You are an expert web development AI assistant. Keep spoken responses SHORT and concise.
 
-IMPORTANT: When you generate HTML/CSS/JS code, you MUST wrap it in CHINESE SQUARE BRACKETS like this:
+IMPORTANT: When you generate HTML/CSS/JS code, you MUST wrap it in BLACK LENTICULAR BRACKETS like this:
 【<!DOCTYPE html><html>...</html>】
 
-The Chinese square brackets 【】 are REQUIRED - they tell the system to render the code visually instead of speaking it.
+The black lenticular brackets 【】 are REQUIRED - they tell the system to render the code visually instead of speaking it.
 
 RULES:
-1. Code must be wrapped in Chinese square brackets: 【<!DOCTYPE html><html>...</html>】
+1. Code must be wrapped in black lenticular brackets: 【<!DOCTYPE html><html>...</html>】
 2. Put ONLY the raw HTML code inside 【】 - NO markdown code fences like ```html
 3. Start with <!DOCTYPE html> or <html immediately after the opening 【
 4. Text outside 【】 will be spoken aloud - KEEP IT BRIEF
@@ -200,7 +200,7 @@ WRONG EXAMPLE:
 ```】
 ````
 
-**Why Chinese brackets?** Regular brackets `[]` conflict with JavaScript arrays and JSON. Markdown fences break the TTS skip pattern. Chinese brackets are unique, rarely appear in natural conversation, and work perfectly with `skip_patterns: [2]`.
+**Why black lenticular brackets?** Regular brackets `[]` conflict with JavaScript arrays and JSON. Markdown fences break the TTS skip pattern. Black lenticular brackets `【】` are unique, rarely appear in natural conversation, and work perfectly with `skip_patterns: [2]`.
 
 ### 5. Real-Time Audio & Messaging
 
@@ -316,7 +316,7 @@ const parseAgentResponse = (text: string) => {
 
 ### 7. Smart Loading Indicators
 
-Users need to know when the AI is generating code. We detect this by watching for the Chinese opening bracket:
+Users need to know when the AI is generating code. We detect this by watching for the black lenticular opening bracket:
 
 ```typescript
 // Set up transcription callback
@@ -324,9 +324,9 @@ client.setTranscriptionCallback((message) => {
   const { spokenText, codes } = parseAgentResponse(message.text);
 
   // Detect code generation in progress
-  const hasChineseOpenBracket = message.text?.includes("【");
+  const hasLenticularOpenBracket = message.text?.includes("【");
 
-  if (message.type === "agent" && hasChineseOpenBracket) {
+  if (message.type === "agent" && hasLenticularOpenBracket) {
     if (!message.isFinal) {
       // AI is streaming code - show loading spinner
       setIsGeneratingCode(true);
@@ -551,60 +551,21 @@ This is used in the "Source Code" view to make the HTML readable.
 
 ### Issue 1: AI Reads Code Aloud
 
-**Problem**: Without `skip_patterns`, the AI will attempt to speak every character of HTML code. It sounds like gibberish and takes forever.
+**Problem**: Without `skip_patterns`, the AI will attempt to speak every character of HTML code.
 
-**Solution**:
+**Solution**: Ensure `skip_patterns: [2]` is set in your TTS configuration and your system prompt explicitly tells the AI to use black lenticular brackets 【】.
 
-```typescript
-tts: {
-  skip_patterns: [2],  // Pattern 2 = Chinese square brackets 【】
-}
-```
+### Issue 2: Code Not Rendering
 
-And ensure your system prompt explicitly tells the AI to use these brackets.
+**Problem**: AI generates code but nothing appears in preview.
 
-### Issue 2: RTM Connection Fails
+**Solution**: Verify the AI is using 【】 brackets (check transcript) and ensure `isFinal` is true before rendering.
 
-**Problem**: "RTM login failed" or "Invalid token"
-
-**Solutions**:
-
-- Verify your token has RTM2 privileges (use `buildTokenWithRtm2`, not `buildTokenWithUid`)
-- UID must be a string for RTM but numeric for RTC - pass both formats
-- Ensure your Agora project has RTM enabled
-
-### Issue 3: Code Not Rendering
-
-**Problem**: AI generates code but nothing appears in preview
-
-**Checklist**:
-
-- Check browser console for `parseAgentResponse` logs
-- Verify the AI is using 【】 brackets (check transcript)
-- Look for `<!DOCTYPE html>` or `<html` in the code
-- Ensure `isFinal` is true before rendering
-
-### Issue 4: Bot Not Speaking
-
-**Problem**: Can see transcript but hear no audio
-
-**Solutions**:
-
-- Verify `NEXT_PUBLIC_AGORA_BOT_UID` matches your start-agent config
-- Check that bot UID is subscribed in RTC `user-published` event
-- Ensure browser audio isn't muted
-- Look for "Bot disconnected" logs
-
-### Issue 5: Microphone Won't Start
+### Issue 3: Microphone Won't Start
 
 **Problem**: "Permission denied" or "No microphone found"
 
-**Solutions**:
-
-- Check browser permissions (should prompt automatically)
-- Ensure another app isn't using the microphone
-- Try in a different browser (Chrome/Edge recommended)
-- Use HTTPS in production (required for `getUserMedia`)
+**Solution**: Check browser permissions and ensure another app isn't using the microphone. Try Chrome or Edge for best compatibility.
 
 ## Deployment Considerations
 
@@ -645,32 +606,6 @@ npm start
 ```
 
 The app is fully server-side rendered with Next.js. Static pages are pre-rendered, API routes run on-demand.
-
-### HTTPS Requirement
-
-Browsers require HTTPS for:
-
-- `getUserMedia` (microphone access)
-- Secure WebSocket connections
-- Service Workers
-
-In development, `localhost` is treated as secure. In production, use a valid SSL certificate.
-
-### Cost Optimization
-
-Agora Conversational AI charges for:
-
-1. **Audio duration**: Per minute of voice interaction
-2. **LLM usage**: GPT-4o tokens (input + output)
-3. **TTS**: Characters spoken
-
-**Tips to reduce costs**:
-
-- Set `idle_timeout: 120` to auto-disconnect inactive sessions
-- Keep system prompts concise
-- Use shorter greeting messages
-- Consider GPT-3.5-turbo for simple requests
-- Cache common responses if possible
 
 ## Testing Locally
 
@@ -928,53 +863,9 @@ import debounce from "lodash.debounce";
 
 const debouncedSetIsGenerating = useMemo(
   () => debounce(setIsGeneratingCode, 300),
-  []
+  [],
 );
 ```
-
-## Real-World Use Cases
-
-Beyond just demos, this architecture enables:
-
-### 1. Interactive Coding Tutorials
-
-Students can ask questions while learning:
-
-- "Show me how to center a div"
-- "What's the difference between flexbox and grid?"
-- "Create an example of async/await"
-
-Each answer comes with working code they can immediately test.
-
-### 2. Rapid Prototyping
-
-Product managers can describe features in plain English:
-
-- "Make a pricing table with three tiers"
-- "Add a contact form with validation"
-- "Show me what the mobile view would look like"
-
-No Figma required - see the actual UI in seconds.
-
-### 3. Accessibility Testing
-
-Generate test cases with built-in accessibility:
-
-- "Create a form with proper ARIA labels"
-- "Show me a keyboard-navigable menu"
-- "Build a screen-reader-friendly modal"
-
-The AI follows best practices automatically.
-
-### 4. Client Presentations
-
-Show clients real, interactive mockups during calls:
-
-- "Let me show you what this would look like..."
-- _Speaks to AI, generates UI live_
-- Client can actually click and interact
-
-Way more impressive than static slides.
 
 ## What's Next?
 
@@ -1008,86 +899,16 @@ Now stop reading and start building. 🚀
 
 ---
 
-## Quick Reference
+## Live Demo
 
-### Key Packages
+- **Live Demo**: [Check the live Demo](https://agora-conversational-ai-coding-assi.vercel.app/)
 
-```json
-{
-  "agora-rtc-sdk-ng": "^4.20.0", // Audio streaming
-  "agora-rtm-sdk": "^2.2.2", // Real-time messaging
-  "agora-token": "^2.0.5", // Token generation
-  "next": "^14.0.0", // Framework
-  "jszip": "^3.10.1" // Code export
-}
-```
+---
 
-### Essential API Endpoints
+## Resources
 
-**Start Agent**:
+- **GitHub Repository**: [Agora-Conversational-AI-Coding-Assistant](https://github.com/AgoraIO-Community/Agora-Conversational-AI-Coding-Assistant)
+- **Agora Documentation**: [Conversational AI Docs](https://docs.agora.io/en/conversational-ai/overview)
+- **Community Discord**: [Join the Agora Discord](https://discord.gg/uhkxjDpJsN)
 
-```
-POST https://api.agora.io/api/conversational-ai-agent/v2/projects/{appId}/join
-```
-
-**Leave Agent**:
-
-```
-POST https://api.agora.io/api/conversational-ai-agent/v2/projects/{appId}/agents/{agentId}/leave
-```
-
-### Token Generation
-
-```typescript
-import { RtcTokenBuilder, RtcRole } from "agora-token";
-
-const token = RtcTokenBuilder.buildTokenWithRtm2(
-  appId, // Your Agora App ID
-  appCertificate, // Your App Certificate
-  channelName, // Channel name
-  uid, // Numeric UID for RTC
-  RtcRole.PUBLISHER, // Role
-  3600, // RTC token expiration
-  3600,
-  3600,
-  3600,
-  3600, // RTC privileges
-  String(uid), // String UID for RTM
-  3600 // RTM token expiration
-);
-```
-
-### Useful Resources
-
-- [Agora Conversational AI Docs](https://docs.agora.io/en/conversational-ai/overview)
-- [Agora RTC SDK Reference](https://api-ref.agora.io/en/voice-sdk/web/4.x/index.html)
-- [Agora RTM SDK Reference](https://api-ref.agora.io/en/signaling/web/2.x/index.html)
-- [Azure TTS Voice Gallery](https://speech.microsoft.com/portal/voicegallery)
-- [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
-
-### Environment Variables Template
-
-```bash
-# Agora Credentials
-NEXT_PUBLIC_AGORA_APP_ID=
-AGORA_APP_CERTIFICATE=
-AGORA_CUSTOMER_ID=
-AGORA_CUSTOMER_SECRET=
-NEXT_PUBLIC_AGORA_BOT_UID=1001
-
-# LLM Configuration
-LLM_URL=https://api.openai.com/v1/chat/completions
-LLM_API_KEY=
-
-# TTS Configuration
-TTS_API_KEY=
-TTS_REGION=eastus
-```
-
-### Contact & Support
-
-- **Agora Developer Support**: support@agora.io
-- **Agora Console**: https://console.agora.io
-- **Community Slack**: https://www.agora.io/en/community/
-
-Built with ❤️ for LA Tech Week by the Agora team.
+Built with ❤️ by the Agora team.
