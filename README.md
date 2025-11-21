@@ -2,7 +2,7 @@
 
 A powerful Next.js application featuring real-time voice interaction with an AI coding assistant powered by Agora Conversational AI. Talk to the AI and watch it generate HTML/CSS/JS code that renders live in your browser!
 
-Built for **LA Tech Week** by [ConvoAI](https://convoai.world) × [Agora](https://www.agora.io)
+Built by [ConvoAI](https://convoai.world) × [Agora](https://www.agora.io)
 
 ## ✨ Features
 
@@ -27,7 +27,7 @@ Built for **LA Tech Week** by [ConvoAI](https://convoai.world) × [Agora](https:
 
 ### Code Format
 
-The AI wraps code in **Chinese square brackets** `【】` to separate it from spoken text:
+The AI wraps code in **black lenticular brackets** `【】` to separate it from spoken text:
 
 ```
 Here's a beautiful button 【<!DOCTYPE html><html>...</html>】 that you can interact with.
@@ -73,12 +73,10 @@ TTS_REGION=eastus
 **Where to get these values:**
 
 1. **Agora Credentials**: Sign up at [Agora Console](https://console.agora.io/)
-
    - Create a project → Get App ID and App Certificate
    - Enable Conversational AI → Get API Key & Secret
 
 2. **OpenAI API Key**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
-
    - Uses GPT-4o model for best code generation
 
 3. **Azure TTS**: Create resource at [Azure Portal](https://portal.azure.com)
@@ -109,7 +107,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Project Structure
 
 ```
-la_tech_week/
+ai_coding_assistant/
 ├── app/
 │   ├── api/
 │   │   ├── token/route.ts          # Dynamic RTC token generation
@@ -281,7 +279,7 @@ The AI will use https://picsum.photos/ for all images automatically!
 
 ### Code not rendering
 
-✅ AI must wrap code in Chinese brackets: `【<!DOCTYPE html>...】`
+✅ AI must wrap code in black lenticular brackets: `【<!DOCTYPE html>...】`
 ✅ Check browser console for parsing errors
 ✅ Verify TTS skip_patterns is set to `[2]` in start-agent route
 
@@ -300,9 +298,9 @@ The AI will use https://picsum.photos/ for all images automatically!
 
 ## 🎯 Key Features Explained
 
-### Chinese Square Brackets `【】`
+### Black Lenticular Brackets `【】`
 
-We use Chinese square brackets instead of regular parentheses/brackets because:
+We use black lenticular brackets instead of regular parentheses/brackets because:
 
 - ✅ TTS skip pattern `[2]` specifically handles these
 - ✅ Won't conflict with JavaScript array syntax `[]`
@@ -365,8 +363,6 @@ MIT License - feel free to use this for your own projects!
 
 ## 🤝 Contributing
 
-Built with ❤️ for LA Tech Week
-
 **Powered by:**
 
 - [ConvoAI](https://convoai.world) - Conversational AI platform
@@ -377,3 +373,5 @@ Built with ❤️ for LA Tech Week
 **Questions?** Check the documentation files or open an issue!
 
 **Demo:** Try it live and ask the AI to build anything you can imagine! 🚀
+
+- [LiveDemo](https://agora-conversational-ai-coding-assi.vercel.app/) - Live Demo

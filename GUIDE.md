@@ -2,7 +2,7 @@
 
 When I first saw the possibilities of voice-driven development tools, I knew we had to build something that would blow developers' minds at LA Tech Week. Not just another chatbot, but a real-time coding assistant that listens to your voice and generates working web applications instantly.
 
-This guide walks you through how we built it using Agora's Conversational AI platform. You'll learn the architecture decisions, the tricky parts we solved, and how to build your own voice-powered coding assistant.
+This guide walks you through how we built it using Agora's Conversational AI platform, so you can create your own. You'll learn the architecture decisions, the tricky parts we solved, and how to build your own voice-powered coding assistant.
 
 ## What We're Building
 
@@ -15,6 +15,84 @@ An AI coding assistant that:
 - Keeps preview and code visible even after ending the session
 
 Watch it in action: Ask "Create a todo list app with a purple gradient" and within seconds, you'll see a fully functional app render in the preview pane while the AI explains what it built.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Project Setup](#project-setup)
+- [Understand the Architecture](#architecture-overview)
+- [Build Your Voice-Powered Coding Assistant](#build-your-voice-powered-coding-assistant)
+- [Test Your Implementation](#test-your-voice-powered-coding-assistant)
+- [Next Steps](#next-steps)
+
+## Prerequisites
+
+To build this voice-powered AI coding assistant, you'll need:
+
+- A valid [Agora account](https://docs.agora.io/en/Agora%20Platform/sign_in_and_sign_up). If you don't have one, see [Get started with Agora](https://docs.agora.io/en/Agora%20Platform/get_appid_token?platform=All%20Platforms).
+- An Agora project with [App Certificate enabled](https://docs.agora.io/en/Agora%20Platform/manage_projects?platform=All%20Platforms#manage-your-app-certificates) and access to Conversational AI features
+- OpenAI API key with access to GPT-4o
+- Node.js 18+ and npm installed
+- Basic understanding of React, Next.js, and TypeScript
+- A modern browser (Chrome or Edge recommended for best microphone support)
+
+## Project Setup
+
+To set up your development environment:
+
+1. Create a new Next.js project with TypeScript:
+
+```bash
+npx create-next-app@latest agora-ai-assistant --typescript --tailwind --app
+cd agora-ai-assistant
+```
+
+2. Install required Agora SDKs:
+
+```bash
+npm install agora-rtc-sdk-ng agora-rtm-sdk agora-token
+```
+
+3. Create your environment variables file:
+
+```bash
+cp .env.example .env.local
+```
+
+4. Configure your `.env.local` with your credentials:
+
+```bash
+# Agora Configuration
+NEXT_PUBLIC_AGORA_APP_ID=your_app_id_here
+AGORA_APP_CERTIFICATE=your_app_certificate
+AGORA_CUSTOMER_ID=your_customer_id
+AGORA_CUSTOMER_SECRET=your_customer_secret
+NEXT_PUBLIC_AGORA_BOT_UID=1001
+
+# LLM Configuration
+LLM_URL=https://api.openai.com/v1/chat/completions
+LLM_API_KEY=sk-your_openai_key
+```
+
+Your project structure should look like this:
+
+```
+agora-ai-assistant/
+├── app/
+│   ├── api/
+│   │   ├── token/
+│   │   │   └── route.ts
+│   │   ├── start-agent/
+│   │   │   └── route.ts
+│   │   └── leave-agent/
+│   │       └── route.ts
+│   ├── page.tsx
+│   └── layout.tsx
+├── lib/
+│   └── agora-client.ts
+├── .env.local
+└── package.json
+```
 
 ## Architecture Overview
 
@@ -52,39 +130,120 @@ Watch it in action: Ask "Create a todo list app with a purple gradient" and with
 4. **Agora Conversational AI**: Orchestrates ASR → LLM → TTS pipeline
 5. **API Routes**: Server-side token generation and agent management
 
-## The Flow: From Voice to Code
+## Build Your Voice-Powered Coding Assistant
+
+Building this assistant involves coordinating multiple Agora services. This section shows you how to:
+
+- [Set up secure token generation](#2-implement-server-side-token-generation)
+- [Configure the Conversational AI agent](#3-configure-the-ai-agent)
+- [Establish real-time audio and messaging connections](#4-connect-audio-and-messaging-streams)
+- [Parse and render AI-generated code](#5-parse-and-display-generated-code)
 
 Let me walk you through what happens when a user says "Create a calculator":
 
 ### 1. Session Initialization
 
+When a user clicks "Start Session," we need to orchestrate three distinct operations: generate a unique channel, get security credentials, and launch the AI agent. Let's build this step by step.
+
+#### Step 1: Generate a unique channel identifier
+
+First, create the basic connection handler:
+
 ```typescript
-// User clicks "Start Session" → handleConnect() fires
+// app/page.tsx
 const handleConnect = async () => {
-  // Generate unique channel name
+  // Generate unique channel name to isolate each session
   const channel = `agora-ai-${Math.random().toString(36).substring(2, 15)}`;
-
-  // Get RTC token with both RTC and RTM2 privileges
-  const response = await fetch("/api/token", {
-    method: "POST",
-    body: JSON.stringify({ channelName: channel, uid }),
-  });
-
-  // Start the AI agent
-  const agentResponse = await fetch("/api/start-agent", {
-    method: "POST",
-    body: JSON.stringify({ channelName: channel, uid }),
-  });
-
-  // Initialize Agora client and join channel
-  const client = new AgoraConversationalClient(/* ... */);
-  await client.initialize();
+  
+  // Generate a random user ID for this session
+  const uid = Math.floor(Math.random() * 10000);
+  
+  console.log(`Creating session: ${channel}`);
 };
 ```
 
-**Why this matters**: We generate a random channel name for each session to ensure isolation. The token has both RTC (for audio) and RTM2 (for messages) privileges baked in, so we only need one token instead of managing two separately.
+The random channel name prevents users from accidentally joining each other's sessions. Each session gets its own isolated space.
 
-### 2. Token Generation (Server-Side)
+#### Step 2: Request authentication token
+
+Now add the token request to your handler:
+
+```typescript
+// app/page.tsx
+const handleConnect = async () => {
+  // Generate unique channel name to isolate each session
+  const channel = `agora-ai-${Math.random().toString(36).substring(2, 15)}`;
+  
+  // Generate a random user ID for this session
+  const uid = Math.floor(Math.random() * 10000);
+  
+  // Request a token from our server with RTC and RTM2 privileges
+  const response = await fetch("/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channelName: channel, uid }),
+  });
+  
+  const { token } = await response.json();
+  console.log('Token received');
+};
+```
+
+We're requesting the token from our own API route (which we'll build next) rather than generating it client-side. This keeps your App Certificate secure.
+
+#### Step 3: Start the AI agent and initialize client
+
+Finally, complete the handler by launching the agent:
+
+```typescript
+// app/page.tsx
+const handleConnect = async () => {
+  // Generate unique channel name to isolate each session
+  const channel = `agora-ai-${Math.random().toString(36).substring(2, 15)}`;
+  
+  // Generate a random user ID for this session
+  const uid = Math.floor(Math.random() * 10000);
+  
+  // Request a token from our server with RTC and RTM2 privileges
+  const response = await fetch("/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channelName: channel, uid }),
+  });
+  
+  const { token } = await response.json();
+  
+  // Start the AI agent in this channel
+  const agentResponse = await fetch("/api/start-agent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channelName: channel, uid }),
+  });
+  
+  const { agentId } = await agentResponse.json();
+  
+  // Store these for later use
+  setAgentId(agentId);
+  setChannelName(channel);
+  
+  // Initialize Agora client and join channel
+  const AgoraModule = await import("@/lib/agora-client");
+  const client = new AgoraModule.AgoraConversationalClient({
+    appId: process.env.NEXT_PUBLIC_AGORA_APP_ID!,
+    channel,
+    token,
+    uid,
+    botUid: parseInt(process.env.NEXT_PUBLIC_AGORA_BOT_UID!),
+  });
+  
+  await client.initialize();
+  setIsConnected(true);
+};
+```
+
+**Why this sequence matters**: We must get the token before starting the agent, and both must complete before initializing the client. The async/await chain ensures each step completes successfully. The token has both RTC (for audio) and RTM2 (for messages) privileges baked in, so we only need one token instead of managing two separately.
+
+### 2. Implement Server-Side Token Generation
 
 The `/api/token` route generates a secure token that never exposes your App Certificate to the client:
 
@@ -106,7 +265,7 @@ export async function POST(request: NextRequest) {
     3600,
     3600, // RTC privileges
     String(uid), // RTM user ID (string)
-    3600 // RTM privilege
+    3600, // RTM privilege
   );
 
   return NextResponse.json({ token });
@@ -115,7 +274,7 @@ export async function POST(request: NextRequest) {
 
 **Security note**: Always generate tokens server-side. Your App Certificate should never touch the browser.
 
-### 3. Starting the Conversational AI Agent
+### 3. Configure the AI Agent
 
 This is where the magic happens. The `/api/start-agent` route configures the entire AI pipeline:
 
@@ -168,7 +327,7 @@ const requestBody = {
 };
 ```
 
-**The skip_patterns trick**: Notice `skip_patterns: [2]`? This tells the TTS engine to skip content wrapped in Chinese square brackets `【】`. That's how we prevent the AI from reading aloud 500 lines of HTML code.
+**The skip_patterns trick**: Notice `skip_patterns: [2]`? This tells the TTS engine to skip content wrapped in black lenticular brackets `【】`. That's how we prevent the AI from reading aloud 500 lines of HTML code.
 
 ### 4. The Critical System Prompt
 
@@ -177,13 +336,13 @@ Here's the system prompt that makes the code generation work:
 ````text
 You are an expert web development AI assistant. Keep spoken responses SHORT and concise.
 
-IMPORTANT: When you generate HTML/CSS/JS code, you MUST wrap it in CHINESE SQUARE BRACKETS like this:
+IMPORTANT: When you generate HTML/CSS/JS code, you MUST wrap it in BLACK LENTICULAR BRACKETS like this:
 【<!DOCTYPE html><html>...</html>】
 
-The Chinese square brackets 【】 are REQUIRED - they tell the system to render the code visually instead of speaking it.
+The black lenticular brackets 【】 are REQUIRED - they tell the system to render the code visually instead of speaking it.
 
 RULES:
-1. Code must be wrapped in Chinese square brackets: 【<!DOCTYPE html><html>...</html>】
+1. Code must be wrapped in black lenticular brackets: 【<!DOCTYPE html><html>...</html>】
 2. Put ONLY the raw HTML code inside 【】 - NO markdown code fences like ```html
 3. Start with <!DOCTYPE html> or <html immediately after the opening 【
 4. Text outside 【】 will be spoken aloud - KEEP IT BRIEF
@@ -200,9 +359,9 @@ WRONG EXAMPLE:
 ```】
 ````
 
-**Why Chinese brackets?** Regular brackets `[]` conflict with JavaScript arrays and JSON. Markdown fences break the TTS skip pattern. Chinese brackets are unique, rarely appear in natural conversation, and work perfectly with `skip_patterns: [2]`.
+**Why black lenticular brackets?** Regular brackets `[]` conflict with JavaScript arrays and JSON. Markdown fences break the TTS skip pattern. Black lenticular brackets `【】` are unique, rarely appear in natural conversation, and work perfectly with `skip_patterns: [2]`.
 
-### 5. Real-Time Audio & Messaging
+### 4. Connect Audio and Messaging Streams
 
 Once the agent joins the channel, we establish two parallel connections:
 
@@ -273,7 +432,7 @@ private async initializeRTM() {
 
 **Why two connections?** RTC handles the actual audio streaming (low-latency, high-quality voice). RTM sends structured data like transcriptions, which we need for displaying the conversation and detecting code blocks.
 
-### 6. Parsing the AI's Response
+### 5. Parse and Display Generated Code
 
 When the AI responds, we need to:
 
@@ -314,9 +473,9 @@ const parseAgentResponse = (text: string) => {
 };
 ````
 
-### 7. Smart Loading Indicators
+### 6. Add Smart Loading Indicators
 
-Users need to know when the AI is generating code. We detect this by watching for the Chinese opening bracket:
+Users need to know when the AI is generating code. We detect this by watching for the black lenticular opening bracket:
 
 ```typescript
 // Set up transcription callback
@@ -324,9 +483,9 @@ client.setTranscriptionCallback((message) => {
   const { spokenText, codes } = parseAgentResponse(message.text);
 
   // Detect code generation in progress
-  const hasChineseOpenBracket = message.text?.includes("【");
+  const hasLenticularOpenBracket = message.text?.includes("【");
 
-  if (message.type === "agent" && hasChineseOpenBracket) {
+  if (message.type === "agent" && hasLenticularOpenBracket) {
     if (!message.isFinal) {
       // AI is streaming code - show loading spinner
       setIsGeneratingCode(true);
@@ -360,7 +519,7 @@ client.setTranscriptionCallback((message) => {
 
 **Why check for `isFinal`?** The AI streams responses word-by-word. We don't want to display partial sentences or render incomplete code. Only when `isFinal` is true do we know we have the complete message.
 
-### 8. Safe Code Preview
+### 7. Implement Safe Code Preview
 
 Generated code runs in a sandboxed iframe to prevent XSS attacks:
 
@@ -380,7 +539,7 @@ Generated code runs in a sandboxed iframe to prevent XSS attacks:
 - `allow-same-origin` enables localStorage but still isolates from parent page
 - No `allow-top-navigation` means code can't redirect the main page
 
-### 9. Graceful Disconnection
+### 8. Handle Graceful Disconnection
 
 When the user clicks "End", we properly clean up resources:
 
@@ -410,7 +569,7 @@ const handleDisconnect = async () => {
 
 **New behavior**: The preview and code remain visible after ending the session. This lets users examine the results without the session running. Only when starting a new session do we reset everything.
 
-### 10. Version Control
+### 9. Add Version Control
 
 The app tracks all code iterations, so users can roll back:
 
@@ -551,60 +710,21 @@ This is used in the "Source Code" view to make the HTML readable.
 
 ### Issue 1: AI Reads Code Aloud
 
-**Problem**: Without `skip_patterns`, the AI will attempt to speak every character of HTML code. It sounds like gibberish and takes forever.
+**Problem**: Without `skip_patterns`, the AI will attempt to speak every character of HTML code.
 
-**Solution**:
+**Solution**: Ensure `skip_patterns: [2]` is set in your TTS configuration and your system prompt explicitly tells the AI to use black lenticular brackets 【】.
 
-```typescript
-tts: {
-  skip_patterns: [2],  // Pattern 2 = Chinese square brackets 【】
-}
-```
+### Issue 2: Code Not Rendering
 
-And ensure your system prompt explicitly tells the AI to use these brackets.
+**Problem**: AI generates code but nothing appears in preview.
 
-### Issue 2: RTM Connection Fails
+**Solution**: Verify the AI is using 【】 brackets (check transcript) and ensure `isFinal` is true before rendering.
 
-**Problem**: "RTM login failed" or "Invalid token"
-
-**Solutions**:
-
-- Verify your token has RTM2 privileges (use `buildTokenWithRtm2`, not `buildTokenWithUid`)
-- UID must be a string for RTM but numeric for RTC - pass both formats
-- Ensure your Agora project has RTM enabled
-
-### Issue 3: Code Not Rendering
-
-**Problem**: AI generates code but nothing appears in preview
-
-**Checklist**:
-
-- Check browser console for `parseAgentResponse` logs
-- Verify the AI is using 【】 brackets (check transcript)
-- Look for `<!DOCTYPE html>` or `<html` in the code
-- Ensure `isFinal` is true before rendering
-
-### Issue 4: Bot Not Speaking
-
-**Problem**: Can see transcript but hear no audio
-
-**Solutions**:
-
-- Verify `NEXT_PUBLIC_AGORA_BOT_UID` matches your start-agent config
-- Check that bot UID is subscribed in RTC `user-published` event
-- Ensure browser audio isn't muted
-- Look for "Bot disconnected" logs
-
-### Issue 5: Microphone Won't Start
+### Issue 3: Microphone Won't Start
 
 **Problem**: "Permission denied" or "No microphone found"
 
-**Solutions**:
-
-- Check browser permissions (should prompt automatically)
-- Ensure another app isn't using the microphone
-- Try in a different browser (Chrome/Edge recommended)
-- Use HTTPS in production (required for `getUserMedia`)
+**Solution**: Check browser permissions and ensure another app isn't using the microphone. Try Chrome or Edge for best compatibility.
 
 ## Deployment Considerations
 
@@ -646,84 +766,66 @@ npm start
 
 The app is fully server-side rendered with Next.js. Static pages are pre-rendered, API routes run on-demand.
 
-### HTTPS Requirement
+## Test Your Voice-Powered Coding Assistant
 
-Browsers require HTTPS for:
+To verify your implementation works correctly:
 
-- `getUserMedia` (microphone access)
-- Secure WebSocket connections
-- Service Workers
-
-In development, `localhost` is treated as secure. In production, use a valid SSL certificate.
-
-### Cost Optimization
-
-Agora Conversational AI charges for:
-
-1. **Audio duration**: Per minute of voice interaction
-2. **LLM usage**: GPT-4o tokens (input + output)
-3. **TTS**: Characters spoken
-
-**Tips to reduce costs**:
-
-- Set `idle_timeout: 120` to auto-disconnect inactive sessions
-- Keep system prompts concise
-- Use shorter greeting messages
-- Consider GPT-3.5-turbo for simple requests
-- Cache common responses if possible
-
-## Testing Locally
-
-### Quick Start
+### 1. Start the development server
 
 ```bash
-# 1. Clone the repo
-git clone <your-repo>
-cd la_tech_week
-
-# 2. Install dependencies
-npm install
-
-# 3. Create .env.local with your credentials
-cp .env.example .env.local
-# Edit .env.local with your actual keys
-
-# 4. Start dev server
 npm run dev
-
-# 5. Open http://localhost:3000
 ```
 
-### Test Scenarios
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-**Basic Connection**:
+### 2. Test basic audio connection
 
-1. Click "Start Session"
-2. Allow microphone access
-3. Wait for "Microphone active" message
-4. Say "Hello" - AI should respond
+1. Click the "Start Session" button
+2. Allow microphone access when prompted
+3. Wait for the status to change to "Microphone active"
+4. Say "Hello" clearly
+5. **Expected result**: The AI should respond with a greeting within 2-3 seconds
 
-**Code Generation**:
+If you don't hear a response:
+- Check the browser console for errors
+- Verify your `.env.local` has the correct credentials
+- Ensure no other application is using your microphone
 
-1. Say "Create a button that says hello"
-2. Watch for "Generating code..." spinner
-3. Code should appear in preview pane
-4. Try clicking the button
+### 3. Test code generation
 
-**Version Control**:
+1. With an active session, say: "Create a button that says hello"
+2. **Expected result**: 
+   - A "Generating code..." spinner appears
+   - Within 5-10 seconds, a button renders in the preview pane
+   - The transcript shows what the AI said (without showing the HTML code)
+   - Clicking the button should work
 
-1. Generate initial code
-2. Say "Make it blue instead"
-3. Version dropdown should show v1 and v2
-4. Switch between versions
+### 4. Test code iteration
 
-**Session Persistence**:
+1. With code already generated, say: "Make it blue instead"
+2. **Expected result**:
+   - A new version appears in the preview
+   - The version dropdown now shows "v1" and "v2"
+   - Switching between versions updates the preview
+
+### 5. Test session persistence
 
 1. Generate some code
-2. Click "End" button
-3. Preview should still show the code
+2. Click the "End" button
+3. **Expected result**: The preview still shows your code
 4. Click "Start Session" again
-5. Preview should reset
+5. **Expected result**: The preview resets to empty
+
+### Common issues and solutions
+
+**Issue**: Microphone permission denied
+- **Solution**: In Chrome, click the lock icon in the address bar → Site settings → Reset permissions
+
+**Issue**: AI responds but code doesn't render
+- **Solution**: Check the browser console. Look for the raw AI response - verify it contains 【】 brackets around HTML
+
+**Issue**: Token error or "Unauthorized"
+- **Solution**: Verify your `AGORA_APP_CERTIFICATE` matches your App ID in the Agora console
 
 ### Debugging Tips
 
@@ -928,53 +1030,9 @@ import debounce from "lodash.debounce";
 
 const debouncedSetIsGenerating = useMemo(
   () => debounce(setIsGeneratingCode, 300),
-  []
+  [],
 );
 ```
-
-## Real-World Use Cases
-
-Beyond just demos, this architecture enables:
-
-### 1. Interactive Coding Tutorials
-
-Students can ask questions while learning:
-
-- "Show me how to center a div"
-- "What's the difference between flexbox and grid?"
-- "Create an example of async/await"
-
-Each answer comes with working code they can immediately test.
-
-### 2. Rapid Prototyping
-
-Product managers can describe features in plain English:
-
-- "Make a pricing table with three tiers"
-- "Add a contact form with validation"
-- "Show me what the mobile view would look like"
-
-No Figma required - see the actual UI in seconds.
-
-### 3. Accessibility Testing
-
-Generate test cases with built-in accessibility:
-
-- "Create a form with proper ARIA labels"
-- "Show me a keyboard-navigable menu"
-- "Build a screen-reader-friendly modal"
-
-The AI follows best practices automatically.
-
-### 4. Client Presentations
-
-Show clients real, interactive mockups during calls:
-
-- "Let me show you what this would look like..."
-- _Speaks to AI, generates UI live_
-- Client can actually click and interact
-
-Way more impressive than static slides.
 
 ## What's Next?
 
@@ -987,107 +1045,45 @@ This is just the beginning. Here's what we're considering for v2:
 - **Custom components**: Train the AI on your design system
 - **Visual editing**: Point and say "make that button bigger"
 
-## Conclusion
+## Next Steps
 
-Building this voice-powered coding assistant taught me that the future of development tools isn't just about writing code faster - it's about removing the barrier between thinking and building.
+Building this voice-powered coding assistant showed me that the future of development tools isn't just about writing code faster - it's about eliminating the friction between imagination and implementation.
 
-When you can say "create a todo list" and see a working app 10 seconds later, you're not just saving time. You're freeing your mind to focus on the creative parts: the UX, the interactions, the problem you're actually solving.
+When you say "create a todo list" and watch a working app materialize 10 seconds later, you're experiencing something fundamentally different from traditional coding. Your mind stays in the creative flow - focused on the UX, the user journey, the problem you're solving - instead of getting bogged down in syntax and boilerplate.
 
-The Agora Conversational AI platform handles the heavy lifting:
+The Agora Conversational AI platform handled the hard parts:
 
 - Crystal-clear voice transmission via RTC
-- Real-time transcription via RTM
-- Seamless LLM integration
-- Natural-sounding TTS
+- Real-time transcription through RTM
+- Seamless LLM orchestration
+- Natural-sounding text-to-speech
 
-All we had to do was wire it together and build a great UI.
+We just connected the pieces and built an interface that got out of your way.
 
-If you build something with this architecture, I'd love to see it. Tag [@AgoraIO](https://twitter.com/agoraio) and show us what you create.
+**What you've built**: A complete voice-to-code system that processes natural language, generates working HTML/CSS/JS applications, and renders them in real-time with version control.
 
-Now stop reading and start building. 🚀
+**Where to go from here**:
+
+- Fork the [complete source code on GitHub](https://github.com/AgoraIO-Community/Agora-Conversational-AI-Coding-Assistant)
+- Explore the [Agora Conversational AI documentation](https://docs.agora.io/en/conversational-ai/overview) for advanced features
+- Join the [Agora Discord community](https://discord.gg/uhkxjDpJsN) to share what you build
+
+If you extend this project, I want to see it. Tag [@AgoraIO](https://twitter.com/agoraio) with what you create.
+
+Now stop reading. Start building. 🚀
 
 ---
 
-## Quick Reference
+## Live Demo
 
-### Key Packages
+- **Live Demo**: [Check the live Demo](https://agora-conversational-ai-coding-assi.vercel.app/)
 
-```json
-{
-  "agora-rtc-sdk-ng": "^4.20.0", // Audio streaming
-  "agora-rtm-sdk": "^2.2.2", // Real-time messaging
-  "agora-token": "^2.0.5", // Token generation
-  "next": "^14.0.0", // Framework
-  "jszip": "^3.10.1" // Code export
-}
-```
+---
 
-### Essential API Endpoints
+## Resources
 
-**Start Agent**:
+- **GitHub Repository**: [Agora-Conversational-AI-Coding-Assistant](https://github.com/AgoraIO-Community/Agora-Conversational-AI-Coding-Assistant)
+- **Agora Documentation**: [Conversational AI Docs](https://docs.agora.io/en/conversational-ai/overview)
+- **Community Discord**: [Join the Agora Discord](https://discord.gg/uhkxjDpJsN)
 
-```
-POST https://api.agora.io/api/conversational-ai-agent/v2/projects/{appId}/join
-```
-
-**Leave Agent**:
-
-```
-POST https://api.agora.io/api/conversational-ai-agent/v2/projects/{appId}/agents/{agentId}/leave
-```
-
-### Token Generation
-
-```typescript
-import { RtcTokenBuilder, RtcRole } from "agora-token";
-
-const token = RtcTokenBuilder.buildTokenWithRtm2(
-  appId, // Your Agora App ID
-  appCertificate, // Your App Certificate
-  channelName, // Channel name
-  uid, // Numeric UID for RTC
-  RtcRole.PUBLISHER, // Role
-  3600, // RTC token expiration
-  3600,
-  3600,
-  3600,
-  3600, // RTC privileges
-  String(uid), // String UID for RTM
-  3600 // RTM token expiration
-);
-```
-
-### Useful Resources
-
-- [Agora Conversational AI Docs](https://docs.agora.io/en/conversational-ai/overview)
-- [Agora RTC SDK Reference](https://api-ref.agora.io/en/voice-sdk/web/4.x/index.html)
-- [Agora RTM SDK Reference](https://api-ref.agora.io/en/signaling/web/2.x/index.html)
-- [Azure TTS Voice Gallery](https://speech.microsoft.com/portal/voicegallery)
-- [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
-
-### Environment Variables Template
-
-```bash
-# Agora Credentials
-NEXT_PUBLIC_AGORA_APP_ID=
-AGORA_APP_CERTIFICATE=
-AGORA_CUSTOMER_ID=
-AGORA_CUSTOMER_SECRET=
-NEXT_PUBLIC_AGORA_BOT_UID=1001
-
-# LLM Configuration
-LLM_URL=https://api.openai.com/v1/chat/completions
-LLM_API_KEY=
-
-# TTS Configuration
-TTS_API_KEY=
-TTS_REGION=eastus
-```
-
-### Contact & Support
-
-- **Agora Developer Support**: support@agora.io
-- **Agora Console**: https://console.agora.io
-- **Community Slack**: https://www.agora.io/en/community/
-
-Built with ❤️ for LA Tech Week by the Agora team.
+Built with ❤️ by the Agora team.
